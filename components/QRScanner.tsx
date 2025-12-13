@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, X, AlertCircle, Keyboard, ChevronRight } from 'lucide-react';
+import { Camera, X, AlertCircle, Keyboard, ChevronRight, RefreshCw } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -13,68 +13,94 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const [error, setError] = useState<string | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    // If manual input is shown, don't start camera
     if (showManualInput) return;
 
     let stream: MediaStream | null = null;
+    let isMounted = true;
 
     const startCamera = async () => {
       setError(null);
+      setLoading(true);
       setPermissionGranted(false);
       
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setError("مرورگر شما از دوربین پشتیبانی نمی‌کند.");
-        setShowManualInput(true); // Auto switch to manual
+        if (isMounted) {
+            setError("مرورگر شما از دوربین پشتیبانی نمی‌کند.");
+            setLoading(false);
+            setShowManualInput(true);
+        }
         return;
       }
 
       try {
-        // First try: Rear camera with ideal resolution
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: "environment",
-            width: { ideal: 1280 },
-            height: { ideal: 720 } 
-          } 
-        });
-      } catch (err: any) {
-        console.warn("High res environment camera not found, trying default...", err);
-        try {
-          // Second try: Any available video source
-          stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        } catch (err2) {
-          console.error("Error accessing camera:", err2);
-          setError("عدم دسترسی به دوربین. لطفا مجوز دسترسی را بررسی کنید یا از ورود دستی استفاده کنید.");
-          // Don't auto switch here, let user see error
-          return;
-        }
-      }
-
-      if (videoRef.current && stream) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().catch(e => console.error("Play error:", e));
+        const constraints = {
+            video: {
+                facingMode: "environment"
+            }
         };
-        setPermissionGranted(true);
+
+        try {
+            stream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (err) {
+            console.warn("Environment camera failed, trying fallback...", err);
+            stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        }
+
+        if (isMounted && videoRef.current && stream) {
+            videoRef.current.srcObject = stream;
+            
+            // Wait for metadata to load before playing
+            videoRef.current.onloadedmetadata = () => {
+                if (videoRef.current) {
+                    videoRef.current.play().then(() => {
+                        if (isMounted) {
+                             setPermissionGranted(true);
+                             setLoading(false);
+                        }
+                    }).catch(e => {
+                        console.error("Video play error:", e);
+                        // If play fails, it might be an autoplay policy or hardware glitch
+                        if (isMounted) {
+                             setError("خطا در نمایش تصویر دوربین.");
+                             setLoading(false);
+                        }
+                    });
+                }
+            };
+        }
+      } catch (err: any) {
+        console.error("Camera access error:", err);
+        if (isMounted) {
+            setError("عدم دسترسی به دوربین. لطفا مجوزها را بررسی کنید.");
+            setLoading(false);
+        }
       }
     };
 
     startCamera();
 
     return () => {
+      isMounted = false;
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [showManualInput]);
+  }, [showManualInput, retryCount]);
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (manualCode.trim()) {
       onScan(manualCode.trim());
     }
+  };
+
+  const handleRetry = () => {
+      setRetryCount(prev => prev + 1);
+      setError(null);
   };
 
   return (
@@ -91,7 +117,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         
         {showManualInput ? (
             // Manual Input View
-            <div className="w-full max-w-sm px-6 animate-fade-in-up">
+            <div className="w-full max-w-sm px-6 animate-fade-in-up z-30">
                 <div className="bg-slate-900/90 border border-slate-700 p-6 rounded-3xl backdrop-blur-xl">
                     <div className="flex flex-col items-center mb-6 text-white">
                         <Keyboard size={48} className="mb-4 text-accent opacity-80" />
@@ -112,7 +138,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                             <ChevronRight className="rtl:rotate-180" />
                         </button>
                         <button type="button" onClick={() => setShowManualInput(false)} className="w-full text-slate-400 text-sm py-2 hover:text-white transition-colors">
-                            بازگشت به دوربین
+                            تلاش مجدد دوربین
                         </button>
                     </form>
                 </div>
@@ -120,34 +146,44 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         ) : (
             // Camera View
             <>
-                {permissionGranted ? (
                 <video 
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
                     muted
-                    className="absolute min-w-full min-h-full object-cover"
+                    className={`absolute min-w-full min-h-full object-cover transition-opacity duration-500 ${permissionGranted ? 'opacity-100' : 'opacity-0'}`}
                 />
-                ) : (
-                <div className="text-white text-center p-6 max-w-xs z-10">
-                    {error ? (
-                        <div className="flex flex-col items-center gap-4 bg-red-900/20 p-6 rounded-2xl border border-red-500/30 backdrop-blur-md">
-                            <AlertCircle size={48} className="text-red-500" />
-                            <p className="text-red-200 font-medium text-sm leading-relaxed">{error}</p>
-                            <button 
-                                onClick={() => setShowManualInput(true)}
-                                className="mt-2 bg-red-600 hover:bg-red-500 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-red-900/40 transition-all"
-                            >
-                                ورود دستی کد
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center">
-                            <div className="w-12 h-12 border-4 border-t-accent border-white/20 rounded-full animate-spin mb-4"></div>
-                            <p className="text-slate-300 text-sm">در حال راه‌اندازی دوربین...</p>
-                        </div>
-                    )}
-                </div>
+                
+                {/* Loading / Error State */}
+                {(!permissionGranted || error) && (
+                    <div className="text-white text-center p-6 max-w-xs z-10">
+                        {error ? (
+                            <div className="flex flex-col items-center gap-4 bg-red-900/20 p-6 rounded-2xl border border-red-500/30 backdrop-blur-md">
+                                <AlertCircle size={48} className="text-red-500" />
+                                <p className="text-red-200 font-medium text-sm leading-relaxed">{error}</p>
+                                <div className="flex gap-2 w-full">
+                                    <button 
+                                        onClick={handleRetry}
+                                        className="flex-1 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <RefreshCw size={16} />
+                                        <span>تلاش مجدد</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setShowManualInput(true)}
+                                        className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-red-900/40 transition-all"
+                                    >
+                                        ورود دستی
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center">
+                                <div className="w-12 h-12 border-4 border-t-accent border-white/20 rounded-full animate-spin mb-4"></div>
+                                <p className="text-slate-300 text-sm">در حال راه‌اندازی دوربین...</p>
+                            </div>
+                        )}
+                    </div>
                 )}
                 
                 {/* Scanner Overlay - Only show if camera is working */}
