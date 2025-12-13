@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, X, AlertCircle, Keyboard, ChevronRight, RefreshCw } from 'lucide-react';
+// @ts-ignore
 import jsQR from 'jsqr';
 
 interface QRScannerProps {

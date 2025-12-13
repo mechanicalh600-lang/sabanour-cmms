@@ -16,6 +16,15 @@ export default defineConfig(({ mode }) => {
       build: {
         target: 'es2015', // Ensure compatibility with older mobile browsers to prevent white screen
         outDir: 'dist',
+        rollupOptions: {
+            // این تنظیم باعث می‌شود اگر پکیج نصب نبود، بیلد فیل نشود و از CDN استفاده کند
+            external: ['jsqr'],
+            output: {
+                globals: {
+                    jsqr: 'jsQR'
+                }
+            }
+        }
       },
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
