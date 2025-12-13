@@ -1,0 +1,8 @@
+{
+  "name": "Smart CMMS Pro1",
+  "description": "Next-gen maintenance checklist application with QR scanning and AI-generated workflows.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
