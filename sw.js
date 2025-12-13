@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'cmms-pro-v2';
+const CACHE_NAME = 'cmms-pro-v3';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
