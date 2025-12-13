@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist -u \"CMMS Bot <deploy@cmms.com>\""
   },
   "dependencies": {
     "@google/genai": "^1.30.0",
