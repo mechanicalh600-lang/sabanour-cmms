@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, X, AlertCircle, Keyboard, ChevronRight, RefreshCw } from 'lucide-react';
+import jsQR from 'jsqr';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -9,12 +10,53 @@ interface QRScannerProps {
 
 export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
+  const requestRef = useRef<number>();
+  
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualCode, setManualCode] = useState('');
   const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
+
+  // Function to scan frames
+  const tick = () => {
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        if (ctx) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Attempt to find QR code
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: "dontInvert",
+            });
+            
+            if (code && code.data && code.data.trim() !== "") {
+                onScan(code.data);
+                return; // Stop scanning loop
+            }
+        }
+    }
+    requestRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => {
+    // Start scanning loop when permission is granted
+    if (permissionGranted && !showManualInput) {
+        requestRef.current = requestAnimationFrame(tick);
+    }
+    return () => {
+        if (requestRef.current) cancelAnimationFrame(requestRef.current);
+    };
+  }, [permissionGranted, showManualInput]);
 
   useEffect(() => {
     if (showManualInput) return;
@@ -52,6 +94,8 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
         if (isMounted && videoRef.current && stream) {
             videoRef.current.srcObject = stream;
+            // For iOS
+            videoRef.current.setAttribute("playsinline", "true"); 
             
             // Wait for metadata to load before playing
             videoRef.current.onloadedmetadata = () => {
@@ -63,7 +107,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                         }
                     }).catch(e => {
                         console.error("Video play error:", e);
-                        // If play fails, it might be an autoplay policy or hardware glitch
                         if (isMounted) {
                              setError("خطا در نمایش تصویر دوربین.");
                              setLoading(false);
@@ -88,6 +131,7 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
   }, [showManualInput, retryCount]);
 
