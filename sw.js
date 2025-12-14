@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'cmms-pro-v3';
+const CACHE_NAME = 'cmms-pro-v12';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
@@ -9,7 +9,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Force activation
+  self.skipWaiting(); // Force activation immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
@@ -33,8 +33,7 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // For navigation requests (HTML), try network first, then cache.
-  // This prevents white screen due to stale index.html pointing to missing JS chunks.
+  // Always try network first for HTML to ensure latest version
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
@@ -51,7 +50,7 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // For assets (JS, CSS, Images), try cache first, then network
+  // For assets, try cache first, then network
   event.respondWith(
     caches.match(event.request)
       .then(response => {
