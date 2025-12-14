@@ -1,11 +1,12 @@
 
-const CACHE_NAME = 'cmms-pro-v12';
+const CACHE_NAME = 'cmms-pro-v20';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
   `${REPO_NAME}/`,
   `${REPO_NAME}/index.html`,
-  `${REPO_NAME}/manifest.json`
+  `${REPO_NAME}/manifest.json`,
+  `${REPO_NAME}/vite.svg`
 ];
 
 self.addEventListener('install', event => {
