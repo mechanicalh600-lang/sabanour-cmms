@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { CheckCircle2, XCircle, Camera, Video, AlertTriangle, FileEdit, Mic, MicOff, Trash2 } from 'lucide-react';
+import { CheckCircle2, XCircle, Camera, Video, AlertTriangle, FileEdit, Mic, MicOff, Trash2, Image as ImageIcon, Film } from 'lucide-react';
 import { ChecklistItemData, InspectionStatus } from '../types';
 
 interface Props {
@@ -164,7 +164,7 @@ export const ChecklistItem: React.FC<Props> = ({ item, onChange }) => {
 
       {/* Expanded Actions */}
       <div className={`overflow-hidden transition-all duration-300 ease-in-out bg-slate-50/50 dark:bg-slate-800/50 ${
-          isExpanded || item.status === InspectionStatus.FAIL ? 'max-h-[500px] opacity-100 border-t border-slate-100 dark:border-slate-800' : 'max-h-0 opacity-0'
+          isExpanded || item.status === InspectionStatus.FAIL ? 'max-h-[600px] opacity-100 border-t border-slate-100 dark:border-slate-800' : 'max-h-0 opacity-0'
       }`}>
         <div className="p-4 space-y-3">
           
@@ -206,59 +206,87 @@ export const ChecklistItem: React.FC<Props> = ({ item, onChange }) => {
              </p>
           )}
 
-          {/* Media Buttons & Previews */}
+          {/* Media Buttons & Previews - Split Layout */}
           <div className="grid grid-cols-2 gap-3">
-            {/* Photo Upload */}
-            <div className="relative">
-                <label className={`flex flex-col items-center justify-center h-24 border border-dashed rounded-xl cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                    item.photo ? 'border-green-400 dark:border-green-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-accent hover:bg-blue-50 dark:hover:bg-slate-800'
-                }`}>
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleFileChange(e, 'photo')} />
-                    {photoPreview ? (
-                        <div className="w-full h-full relative">
-                            <img src={photoPreview} alt="Preview" className="w-full h-full object-cover object-top" />
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-white text-xs font-bold">تغییر عکس</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-1 text-slate-500 dark:text-slate-400 group-hover:text-accent">
-                            <Camera size={20} />
-                            <span className="text-xs font-medium">افزودن عکس</span>
-                        </div>
-                    )}
-                </label>
-                {item.photo && (
-                    <button onClick={(e) => clearFile(e, 'photo')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10">
-                        <XCircle size={14} />
-                    </button>
+            {/* Photo Upload Area */}
+            <div className={`relative h-28 border border-dashed rounded-xl overflow-hidden bg-white dark:bg-slate-900 transition-all duration-300 ${
+                item.photo ? 'border-green-400 dark:border-green-600' : 'border-slate-300 dark:border-slate-600'
+            }`}>
+                {photoPreview ? (
+                    <div className="w-full h-full relative group">
+                        <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                        <button onClick={(e) => clearFile(e, 'photo')} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600 transition-colors z-10">
+                            <XCircle size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex w-full h-full">
+                        {/* Direct Camera Button */}
+                        <label className="flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors border-l border-slate-100 dark:border-slate-700/50 group active:bg-blue-100 dark:active:bg-slate-700">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                capture="environment"
+                                className="hidden" 
+                                onChange={(e) => handleFileChange(e, 'photo')} 
+                            />
+                            <Camera size={24} className="text-slate-400 group-hover:text-accent mb-1 transition-colors" />
+                            <span className="text-[10px] font-bold text-slate-500 group-hover:text-accent">عکس فوری</span>
+                        </label>
+                        
+                        {/* Gallery Button */}
+                        <label className="flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors group active:bg-blue-100 dark:active:bg-slate-700">
+                            <input 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={(e) => handleFileChange(e, 'photo')} 
+                            />
+                            <ImageIcon size={24} className="text-slate-400 group-hover:text-accent mb-1 transition-colors" />
+                            <span className="text-[10px] font-medium text-slate-500 group-hover:text-accent">گالری</span>
+                        </label>
+                    </div>
                 )}
             </div>
 
-            {/* Video Upload */}
-            <div className="relative">
-                <label className={`flex flex-col items-center justify-center h-24 border border-dashed rounded-xl cursor-pointer transition-all duration-300 relative group overflow-hidden ${
-                    item.video ? 'border-green-400 dark:border-green-600' : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-accent hover:bg-blue-50 dark:hover:bg-slate-800'
-                }`}>
-                    <input type="file" accept="video/*" className="hidden" onChange={(e) => handleFileChange(e, 'video')} />
-                    {videoPreview ? (
-                        <div className="w-full h-full relative bg-black flex items-center justify-center overflow-hidden">
-                             <video src={videoPreview} className="w-full h-full object-cover" />
-                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <span className="text-white text-xs font-bold">تغییر ویدیو</span>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col items-center gap-1 text-slate-500 dark:text-slate-400 group-hover:text-accent">
-                            <Video size={20} />
-                            <span className="text-xs font-medium">افزودن ویدیو</span>
-                        </div>
-                    )}
-                </label>
-                {item.video && (
-                    <button onClick={(e) => clearFile(e, 'video')} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 shadow-md hover:bg-red-600 transition-colors z-10">
-                        <XCircle size={14} />
-                    </button>
+            {/* Video Upload Area */}
+            <div className={`relative h-28 border border-dashed rounded-xl overflow-hidden bg-white dark:bg-slate-900 transition-all duration-300 ${
+                item.video ? 'border-green-400 dark:border-green-600' : 'border-slate-300 dark:border-slate-600'
+            }`}>
+                {videoPreview ? (
+                    <div className="w-full h-full relative bg-black flex items-center justify-center">
+                        <video src={videoPreview} className="w-full h-full object-cover" />
+                        <button onClick={(e) => clearFile(e, 'video')} className="absolute top-1 right-1 bg-red-500 text-white p-1 rounded-full shadow-md hover:bg-red-600 transition-colors z-10">
+                            <XCircle size={16} />
+                        </button>
+                    </div>
+                ) : (
+                    <div className="flex w-full h-full">
+                        {/* Direct Video Camera Button */}
+                        <label className="flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors border-l border-slate-100 dark:border-slate-700/50 group active:bg-blue-100 dark:active:bg-slate-700">
+                            <input 
+                                type="file" 
+                                accept="video/*" 
+                                capture="environment"
+                                className="hidden" 
+                                onChange={(e) => handleFileChange(e, 'video')} 
+                            />
+                            <Video size={24} className="text-slate-400 group-hover:text-accent mb-1 transition-colors" />
+                            <span className="text-[10px] font-bold text-slate-500 group-hover:text-accent">فیلم فوری</span>
+                        </label>
+                        
+                        {/* Video Gallery Button */}
+                        <label className="flex-1 flex flex-col items-center justify-center cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors group active:bg-blue-100 dark:active:bg-slate-700">
+                            <input 
+                                type="file" 
+                                accept="video/*" 
+                                className="hidden" 
+                                onChange={(e) => handleFileChange(e, 'video')} 
+                            />
+                            <Film size={24} className="text-slate-400 group-hover:text-accent mb-1 transition-colors" />
+                            <span className="text-[10px] font-medium text-slate-500 group-hover:text-accent">گالری</span>
+                        </label>
+                    </div>
                 )}
             </div>
           </div>

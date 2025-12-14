@@ -1,8 +1,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Camera, X, AlertCircle, Keyboard, ChevronRight, RefreshCw } from 'lucide-react';
-// @ts-ignore
-import jsQR from 'jsqr';
+import { X, AlertCircle, Keyboard, ChevronRight, RefreshCw, WifiOff } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (data: string) => void;
@@ -12,13 +10,12 @@ interface QRScannerProps {
 export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(document.createElement('canvas'));
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number>(0);
   
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInput, setShowManualInput] = useState(false);
   const [manualCode, setManualCode] = useState('');
-  const [loading, setLoading] = useState(true);
   const [retryCount, setRetryCount] = useState(0);
 
   // Function to scan frames
@@ -29,20 +26,31 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         
         if (ctx) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Optimization: Only scan the center part of the video (where the box is)
+            const scanSize = Math.min(video.videoWidth, video.videoHeight) * 0.6; // Scan 60% of center
+            const sx = (video.videoWidth - scanSize) / 2;
+            const sy = (video.videoHeight - scanSize) / 2;
+
+            canvas.width = 400; 
+            canvas.height = 400;
+            
+            ctx.drawImage(video, sx, sy, scanSize, scanSize, 0, 0, 400, 400);
             
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
-            // Attempt to find QR code
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
-            
-            if (code && code.data && code.data.trim() !== "") {
-                onScan(code.data);
-                return; // Stop scanning loop
+            // Access global jsQR loaded from index.html script tag
+            // @ts-ignore
+            const jsQR = window.jsQR;
+
+            if (jsQR) {
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code && code.data && code.data.trim() !== "") {
+                    onScan(code.data);
+                    return; 
+                }
             }
         }
     }
@@ -50,7 +58,6 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
   };
 
   useEffect(() => {
-    // Start scanning loop when permission is granted
     if (permissionGranted && !showManualInput) {
         requestRef.current = requestAnimationFrame(tick);
     }
@@ -61,19 +68,24 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
   useEffect(() => {
     if (showManualInput) return;
+    
+    // Check if library loaded
+    // @ts-ignore
+    if (!window.jsQR) {
+        setError("کتابخانه اسکنر بارگذاری نشده است. (مشکل اینترنت)");
+        return;
+    }
 
     let stream: MediaStream | null = null;
     let isMounted = true;
 
     const startCamera = async () => {
       setError(null);
-      setLoading(true);
       setPermissionGranted(false);
       
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         if (isMounted) {
             setError("مرورگر شما از دوربین پشتیبانی نمی‌کند.");
-            setLoading(false);
             setShowManualInput(true);
         }
         return;
@@ -81,46 +93,34 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
 
       try {
         const constraints = {
+            audio: false,
             video: {
-                facingMode: "environment"
+                facingMode: "environment",
+                width: { ideal: 1280 }, 
+                height: { ideal: 720 },
+                focusMode: "continuous" 
             }
-        };
+        } as MediaStreamConstraints;
 
-        try {
-            stream = await navigator.mediaDevices.getUserMedia(constraints);
-        } catch (err) {
-            console.warn("Environment camera failed, trying fallback...", err);
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        }
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
 
         if (isMounted && videoRef.current && stream) {
             videoRef.current.srcObject = stream;
-            // For iOS
             videoRef.current.setAttribute("playsinline", "true"); 
             
-            // Wait for metadata to load before playing
             videoRef.current.onloadedmetadata = () => {
-                if (videoRef.current) {
-                    videoRef.current.play().then(() => {
-                        if (isMounted) {
-                             setPermissionGranted(true);
-                             setLoading(false);
-                        }
-                    }).catch(e => {
-                        console.error("Video play error:", e);
-                        if (isMounted) {
-                             setError("خطا در نمایش تصویر دوربین.");
-                             setLoading(false);
-                        }
-                    });
-                }
+                videoRef.current?.play().then(() => {
+                    if (isMounted) setPermissionGranted(true);
+                }).catch(e => {
+                    console.error("Play error", e);
+                    if (isMounted) setError("خطا در پخش تصویر.");
+                });
             };
         }
       } catch (err: any) {
-        console.error("Camera access error:", err);
+        console.error("Camera error:", err);
         if (isMounted) {
-            setError("عدم دسترسی به دوربین. لطفا مجوزها را بررسی کنید.");
-            setLoading(false);
+            setError("عدم دسترسی به دوربین.");
         }
       }
     };
@@ -201,10 +201,11 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                 
                 {/* Loading / Error State */}
                 {(!permissionGranted || error) && (
-                    <div className="text-white text-center p-6 max-w-xs z-10">
+                    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
+                        <div className="text-white text-center p-6 max-w-xs">
                         {error ? (
                             <div className="flex flex-col items-center gap-4 bg-red-900/20 p-6 rounded-2xl border border-red-500/30 backdrop-blur-md">
-                                <AlertCircle size={48} className="text-red-500" />
+                                {error.includes("اینترنت") ? <WifiOff size={48} className="text-red-500" /> : <AlertCircle size={48} className="text-red-500" />}
                                 <p className="text-red-200 font-medium text-sm leading-relaxed">{error}</p>
                                 <div className="flex gap-2 w-full">
                                     <button 
@@ -228,31 +229,34 @@ export const QRScanner: React.FC<QRScannerProps> = ({ onScan, onClose }) => {
                                 <p className="text-slate-300 text-sm">در حال راه‌اندازی دوربین...</p>
                             </div>
                         )}
+                        </div>
                     </div>
                 )}
                 
                 {/* Scanner Overlay - Only show if camera is working */}
                 {permissionGranted && (
                     <>
-                        <div className="relative w-72 h-72 border-2 border-accent/50 rounded-3xl z-10 flex items-center justify-center overflow-hidden">
-                             <div className="absolute inset-0 border-[40px] border-black/50 mask-image-scanner"></div>
+                        <div className="relative w-72 h-72 border-2 border-accent/50 rounded-3xl z-10 flex items-center justify-center overflow-hidden box-content">
+                             {/* Darken outside area to emphasize scanning zone */}
+                             <div className="absolute top-0 left-0 w-[4000px] h-[4000px] -translate-x-1/2 -translate-y-1/2 border-[2000px] border-black/50 pointer-events-none"></div>
+                             
                              {/* Corner accents */}
-                             <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-accent rounded-tl-xl"></div>
-                             <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-accent rounded-tr-xl"></div>
-                             <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-accent rounded-bl-xl"></div>
-                             <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-accent rounded-br-xl"></div>
+                             <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-accent rounded-tl-xl"></div>
+                             <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-accent rounded-tr-xl"></div>
+                             <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-accent rounded-bl-xl"></div>
+                             <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-accent rounded-br-xl"></div>
                              
                              {/* Scanning line */}
                              <div className="absolute top-0 w-full h-1 bg-accent/80 shadow-[0_0_20px_rgba(14,165,233,0.8)] animate-[scan_2s_infinite]"></div>
                         </div>
-                        <div className="absolute bottom-24 text-white/90 text-sm bg-black/60 px-6 py-3 rounded-full backdrop-blur-md border border-white/10 shadow-xl">
+                        <div className="absolute bottom-24 text-white/90 text-sm bg-black/60 px-6 py-3 rounded-full backdrop-blur-md border border-white/10 shadow-xl z-10">
                              QR Code را در کادر قرار دهید
                         </div>
                         
                         {/* Switch to Manual Button */}
                         <button 
                             onClick={() => setShowManualInput(true)}
-                            className="absolute bottom-8 text-white text-sm flex items-center gap-2 bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-xl backdrop-blur-md transition-all border border-white/5"
+                            className="absolute bottom-8 text-white text-sm flex items-center gap-2 bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-xl backdrop-blur-md transition-all border border-white/5 z-10"
                         >
                             <Keyboard size={18} />
                             <span>ورود دستی کد</span>
