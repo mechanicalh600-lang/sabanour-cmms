@@ -1,6 +1,6 @@
 
-// Update version to force cache refresh
-const CACHE_NAME = 'cmms-pro-v23-fixed';
+// Update version to force cache refresh and clean old files
+const CACHE_NAME = 'cmms-pro-v24-dynamic';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
@@ -36,9 +36,8 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  // Strategy: Network First for HTML, Cache First for Assets
-  // This prevents the "white screen" issue where old HTML points to non-existent JS files.
-
+  // Strategy: Network First for HTML, Cache First (Stale-While-Revalidate pattern) for Assets
+  
   if (event.request.mode === 'navigate') {
     // 1. Navigation Request (HTML): Try Network -> Cache
     event.respondWith(
@@ -56,14 +55,26 @@ self.addEventListener('fetch', event => {
         })
     );
   } else {
-    // 2. Asset Request (JS/CSS/Images): Cache -> Network
+    // 2. Asset Request (JS/CSS/Images): Cache First -> Network -> Cache (Dynamic)
     event.respondWith(
       caches.match(event.request)
-        .then(response => {
-          if (response) {
-            return response;
+        .then(cachedResponse => {
+          // Return cached response if found
+          if (cachedResponse) {
+            return cachedResponse;
           }
-          return fetch(event.request);
+          
+          // Not in cache? Fetch from network
+          return fetch(event.request).then(networkResponse => {
+             // Only cache valid responses (status 200) and basic/cors requests
+             if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
+                 const responseToCache = networkResponse.clone();
+                 caches.open(CACHE_NAME).then(cache => {
+                     cache.put(event.request, responseToCache);
+                 });
+             }
+             return networkResponse;
+          });
         })
     );
   }
