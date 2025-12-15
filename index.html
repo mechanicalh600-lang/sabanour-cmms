@@ -3,6 +3,12 @@
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
+    
+    <!-- Prevent caching of index.html so the user always gets the latest version -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
     <link rel="icon" type="image/svg+xml" href="vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <link rel="manifest" href="manifest.json">
@@ -65,20 +71,21 @@
 
 <link rel="stylesheet" href="/index.css">
     <script type="importmap">
-    {
-      "imports": {
-        "react": "https://esm.sh/react@^19.2.3",
-        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-        "react/": "https://esm.sh/react@^19.2.3/",
-        "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
-        "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-        "path": "https://esm.sh/path@^0.12.7",
-        "vite": "https://esm.sh/vite@^7.2.7",
-        "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-      }
-    }
-    </script>
-  <script type="module" crossorigin src="/sabanour-cmms/assets/index-DxLMQ95q.js"></script>
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.3",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "path": "https://esm.sh/path@^0.12.7",
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/sabanour-cmms/assets/index-D3WPMP2y.js"></script>
 </head>
   <body class="antialiased selection:bg-accent selection:text-white transition-colors duration-300 dark:bg-slate-900 bg-slate-50">
     <div id="root"></div>
@@ -88,7 +95,23 @@
         // Register SW with correct scope for GitHub Pages
         navigator.serviceWorker.register('./sw.js', { scope: './' })
           .then(registration => {
-            console.log('SW registered: ', registration);
+            // Check for updates
+            registration.onupdatefound = () => {
+              const installingWorker = registration.installing;
+              if (installingWorker == null) {
+                return;
+              }
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    console.log('New content is available; please refresh.');
+                    // Optional: Force refresh or show a toast to user
+                  } else {
+                    console.log('Content is cached for offline use.');
+                  }
+                }
+              };
+            };
           })
           .catch(registrationError => {
             console.log('SW registration failed: ', registrationError);
