@@ -1,6 +1,6 @@
 
 // Update version to force cache refresh and clean old files
-const CACHE_NAME = 'cmms-pro-v24-dynamic';
+const CACHE_NAME = 'cmms-pro-v2.0-dynamic';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
