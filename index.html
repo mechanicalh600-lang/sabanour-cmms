@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
   <head>
@@ -51,7 +52,7 @@
     <style>
       body {
         font-family: 'Vazirmatn', sans-serif;
-        background-color: #f8fafc;
+        background-color: #f8fafc; /* Default to light (slate-50) to avoid dark flash on load */
         -webkit-tap-highlight-color: transparent;
       }
       /* Hide scrollbar for cleaner mobile look */
@@ -65,23 +66,8 @@
         -webkit-backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
-      /* Accent Corner Style for History Selection */
-      .selected-accent-corner::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        right: 0;
-        width: 32px;
-        height: 32px;
-        background: #2563eb;
-        clip-path: polygon(100% 0, 0 0, 100% 100%);
-        z-index: 10;
-        box-shadow: -2px 2px 5px rgba(0,0,0,0.1);
-      }
-      .dark .selected-accent-corner::before {
-        background: #3b82f6;
-      }
     </style>
+    <link rel="stylesheet" href="index.css">
 
 <link rel="stylesheet" href="/index.css">
     <script type="importmap">
@@ -92,16 +78,55 @@
     "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1",
     "path": "https://esm.sh/path@^0.12.7",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "vite": "https://esm.sh/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.87.1"
   }
 }
 </script>
-  <script type="module" crossorigin src="/sabanour-cmms/assets/index-CfQrVpYJ.js"></script>
+  <script type="module" crossorigin src="/sabanour-cmms/assets/index-D9OVf2sg.js"></script>
 </head>
-  <body class="antialiased dark:bg-slate-900 bg-slate-50">
+  <body class="antialiased selection:bg-accent selection:text-white transition-colors duration-300 dark:bg-slate-900 bg-slate-50">
     <div id="root"></div>
-  </body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        // Register SW with correct scope for GitHub Pages
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+          .then(registration => {
+            // Check for updates
+            registration.onupdatefound = () => {
+              const installingWorker = registration.installing;
+              if (installingWorker == null) {
+                return;
+              }
+              installingWorker.onstatechange = () => {
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    console.log('New content is available; please refresh.');
+                  } else {
+                    console.log('Content is cached for offline use.');
+                  }
+                }
+              };
+            };
+          })
+          .catch(registrationError => {
+            console.log('SW registration failed: ', registrationError);
+          });
+          
+        // AUTOMATIC RELOAD ON UPDATE
+        // This ensures the app reloads as soon as the new service worker takes control.
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+      });
+    }
+  </script>
+</body>
 </html>
