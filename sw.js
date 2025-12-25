@@ -1,6 +1,6 @@
 
 // Update version to force cache refresh and clean old files
-const CACHE_NAME = 'cmms-pro-v2.0-dynamic';
+const CACHE_NAME = 'cmms-pro-v2.2-no-api-cache';
 const REPO_NAME = '/sabanour-cmms';
 
 const urlsToCache = [
@@ -36,6 +36,16 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+
+  // CRITICAL: Do NOT cache API requests (Supabase, Google APIs)
+  // This ensures dashboards and data are always fetched from the server.
+  if (url.hostname.includes('supabase.co') || 
+      url.hostname.includes('googleapis.com') ||
+      url.pathname.includes('/api/')) {
+    return; // Fallback to network only
+  }
+
   // Strategy: Network First for HTML, Cache First (Stale-While-Revalidate pattern) for Assets
   
   if (event.request.mode === 'navigate') {
@@ -43,19 +53,17 @@ self.addEventListener('fetch', event => {
     event.respondWith(
       fetch(event.request)
         .then(response => {
-          // If network works, update cache and return response
           return caches.open(CACHE_NAME).then(cache => {
              cache.put(event.request, response.clone());
              return response;
           });
         })
         .catch(() => {
-          // If network fails (offline), return cached version
           return caches.match(event.request);
         })
     );
   } else {
-    // 2. Asset Request (JS/CSS/Images): Cache First -> Network -> Cache (Dynamic)
+    // 2. Asset Request (JS/CSS/Images): Cache First -> Network -> Cache
     event.respondWith(
       caches.match(event.request)
         .then(cachedResponse => {
@@ -68,10 +76,14 @@ self.addEventListener('fetch', event => {
           return fetch(event.request).then(networkResponse => {
              // Only cache valid responses (status 200) and basic/cors requests
              if (networkResponse && networkResponse.status === 200 && (networkResponse.type === 'basic' || networkResponse.type === 'cors')) {
-                 const responseToCache = networkResponse.clone();
-                 caches.open(CACHE_NAME).then(cache => {
-                     cache.put(event.request, responseToCache);
-                 });
+                 // Double check not to cache APIs here as well
+                 const responseUrl = new URL(networkResponse.url);
+                 if (!responseUrl.hostname.includes('supabase.co')) {
+                     const responseToCache = networkResponse.clone();
+                     caches.open(CACHE_NAME).then(cache => {
+                         cache.put(event.request, responseToCache);
+                     });
+                 }
              }
              return networkResponse;
           });
